@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoria de Espelho de Ponto | LeãoFin</title>
+    <!-- Bootstrap 5 CSS e Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .card-colaborador {
+            transition: all 0.2s ease-in-out;
+        }
+        .card-colaborador:hover {
+            box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08) !important;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="{% url 'menu_rh' %}">
+                <i class="bi bi-shield-check me-2"></i>LeãoFin
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link text-white-50" href="{% url 'menu_rh' %}">
+                    <i class="bi bi-arrow-left me-1"></i>Voltar ao Menu RH
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        
+        <!-- Cabeçalho Principal -->
+        <div class="d-flex align-items-center justify-content-between pb-3 mb-4 border-bottom">
+            <div>
+                <h3 class="fw-bold mb-1 text-dark">
+                    <i class="bi bi-exclamation-octagon-fill me-2 text-danger"></i>Auditoria de Ocorrências de Ponto
+                </h3>
+                <p class="text-muted mb-0 small">Análise preditiva de divergências, cruzamento por unidade e checagem de folgas</p>
+            </div>
+        </div>
+
+        <!-- Formulário de Upload -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data" class="row g-3 align-items-center">
+                    {% csrf_token %}
+                    <div class="col-md-9">
+                        <label for="arquivo_ponto" class="form-label fw-bold text-dark mb-1">
+                            <i class="bi bi-file-earmark-excel-fill text-success me-2"></i>Upload da Planilha de Ponto (.xlsx)
+                        </label>
+                        <input type="file" class="form-control form-control-lg" id="arquivo_ponto" name="arquivo_ponto" accept=".xlsx, .xls" required>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold shadow-sm">
+                            <i class="bi bi-search me-2"></i>Auditar Ocorrências
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if nome_arquivo %}
+        <!-- BARRA DE FILTROS DIRETA -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-3 bg-white rounded">
+                <div class="row g-2 align-items-center">
+                    
+                    <!-- Busca por Nome -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-search me-1"></i>Colaborador</label>
+                        <input type="text" id="filtroNome" class="form-control form-control-sm" placeholder="Buscar por nome..." oninput="aplicarFiltros()">
+                    </div>
+
+                    <!-- Unidade -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-geo-alt me-1"></i>Unidade</label>
+                        <select id="filtroUnidade" class="form-select form-select-sm" onchange="aplicarFiltros()">
+                            <option value="">Todas as Unidades</option>
+                            {% for u in unidades %}
+                            <option value="{{ u }}">{{ u }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Tipo de Problema -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-filter-circle me-1"></i>Problema Específico</label>
+                        <select id="filtroDivergencia" class="form-select form-select-sm" onchange="aplicarFiltros()">
+                            <option value="">Todos os Problemas</option>
+                            {% for t in tipos_divergencia %}
+                            <option value="{{ t }}">{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Exibir Apenas com Problemas -->
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-eye me-1"></i>Exibição</label>
+                        <select id="filtroStatus" class="form-select form-select-sm" onchange="aplicarFiltros()">
+                            <option value="pendente">Apenas com Problemas</option>
+                            <option value="">Mostrar Todos (Inc. Conformes)</option>
+                        </select>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- LISTA DE OCORRÊNCIAS POR COLABORADOR -->
+        <div class="accordion" id="accordionAuditoria">
+            {% for c in relatorio %}
+            <div class="accordion-item mb-3 border-0 shadow-sm rounded overflow-hidden item-colaborador card-colaborador" 
+                 data-nome="{{ c.nome|lower }}"
+                 data-unidade="{{ c.unidade }}"
+                 data-status="{% if c.total_inconsistencias > 0 %}pendente{% else %}conforme{% endif %}"
+                 data-divergencias="{% for inc in c.inconsistencias %}{{ inc.tipo }}|{% endfor %}">
+                
+                <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                    <button class="accordion-button collapsed py-3 px-4 bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
+                        <div class="row w-100 align-items-center pe-2">
+                            <div class="col-md-6">
+                                <span class="fw-bold text-dark fs-6 d-block">{{ c.nome }}</span>
+                                <small class="text-muted"><i class="bi bi-geo-alt me-1"></i>{{ c.unidade|default:"Leão Azul" }} • {{ c.cargo|default:"Cargo N/I" }}</small>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                {% if c.total_inconsistencias == 0 %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fw-semibold">
+                                        <i class="bi bi-check-circle me-1"></i>Sem Ocorrências
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 rounded-pill fw-semibold">
+                                        <i class="bi bi-exclamation-octagon me-1"></i><span class="qtd-ocorr">{{ c.total_inconsistencias }}</span> Ocorrência(s) Encontrada(s)
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </button>
+                </h2>
+
+                <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#accordionAuditoria">
+                    <div class="accordion-body bg-light-subtle p-3 border-top">
+                        {% if c.inconsistencias %}
+                            <div class="table-responsive">
+                                <table class="table table-hover table-bordered align-middle mb-0 bg-white shadow-sm rounded">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th style="width: 160px;">Data</th>
+                                            <th style="width: 280px;">Problema Identificado</th>
+                                            <th>Detalhamento da Ocorrência</th>
+                                            <th style="width: 130px;" class="text-center">Ação RH</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for inc in c.inconsistencias %}
+                                        <tr class="linha-inconsistencia" data-tipo-inc="{{ inc.tipo }}">
+                                            <td class="fw-bold text-dark">
+                                                <i class="bi bi-calendar-event text-danger me-2"></i>{{ inc.dia }}
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-dark">{{ inc.tipo }}</span>
+                                            </td>
+                                            <td class="text-secondary small">{{ inc.detalhe }}</td>
+                                            <td class="text-center">
+                                                {% if 'Provável Folga' in inc.tipo %}
+                                                    <span class="badge bg-info text-dark px-2 py-1"><i class="bi bi-question-circle me-1"></i>Checar Rodízio</span>
+                                                {% elif inc.nivel == 'ERRO' %}
+                                                    <span class="badge bg-danger px-2 py-1">Ajustar Ponto</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning text-dark px-2 py-1">Verificar</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="p-3 bg-white border rounded text-success small">
+                                <i class="bi bi-check-circle-fill me-2"></i>Nenhum problema registrado para este colaborador.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Estado Inicial -->
+        <div class="text-center py-5 border-0 bg-white rounded shadow-sm my-4">
+            <div class="p-4 bg-primary-subtle text-primary rounded-circle d-inline-block mb-3">
+                <i class="bi bi-file-earmark-arrow-up display-4"></i>
+            </div>
+            <h5 class="fw-bold text-dark">Envie a planilha para listar as ocorrências</h5>
+            <p class="text-muted small mb-0">Selecione o arquivo Excel para identificar faltas, atrasos e checar suspeitas de folga não cadastrada.</p>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Script de Filtro Direto -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function aplicarFiltros() {
+            const rawNome = document.getElementById('filtroNome').value.toLowerCase();
+            const nomeFiltro = rawNome.trim ? rawNome.trim() : rawNome;
+            const unidadeFiltro = document.getElementById('filtroUnidade').value;
+            const divergenciaFiltro = document.getElementById('filtroDivergencia').value;
+            const statusFiltro = document.getElementById('filtroStatus').value;
+
+            const colaboradores = document.querySelectorAll('.item-colaborador');
+
+            colaboradores.forEach(colab => {
+                const nome = colab.getAttribute('data-nome');
+                const unidade = colab.getAttribute('data-unidade');
+                const status = colab.getAttribute('data-status');
+                const divergencias = colab.getAttribute('data-divergencias');
+
+                const linhasTable = colab.querySelectorAll('.linha-inconsistencia');
+                let linhasVisiveis = 0;
+
+                linhasTable.forEach(linha => {
+                    const tipoInc = linha.getAttribute('data-tipo-inc');
+                    if (!divergenciaFiltro || tipoInc === divergenciaFiltro) {
+                        linha.style.display = '';
+                        linhasVisiveis++;
+                    } else {
+                        linha.style.display = 'none';
+                    }
+                });
+
+                const qtdOcorrSpan = colab.querySelector('.qtd-ocorr');
+                if (qtdOcorrSpan) {
+                    qtdOcorrSpan.textContent = linhasVisiveis;
+                }
+
+                const bateuNome = !nomeFiltro || nome.includes(nomeFiltro);
+                const bateuUnidade = !unidadeFiltro || unidade === unidadeFiltro;
+                const bateuStatus = !statusFiltro || status === statusFiltro;
+                const bateuDivergencia = !divergenciaFiltro || (divergencias.includes(divergenciaFiltro) && linhasVisiveis > 0);
+
+                if (bateuNome && bateuUnidade && bateuStatus && bateuDivergencia) {
+                    colab.style.display = 'block';
+                } else {
+                    colab.style.display = 'none';
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('filtroStatus')) {
+                aplicarFiltros();
+            }
+        });
+    </script>
+</body>
+</html>
