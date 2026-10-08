@@ -3,21 +3,31 @@ from app_leao.services.ponto_parser import ler_e_auditar_planilha_ponto
 
 def auditoria_espelho_ponto(request):
     """
-    View de auditoria de ponto eletrônico com upload dinâmico.
+    View de auditoria de ponto eletrônico com upload dinâmico,
+    Matriz Semanal de Escala e Resumo Agregado Consolidado por Unidade.
     """
     relatorio_colaboradores = []
+    matriz_escala = {}
+    resumo_agregado = {}
     nome_arquivo = None
     unidades = set()
-    tipos_divergencia = set()
+
+    tipos_divergencia = {
+        'Falta Integral',
+        'Escala Alternada Não Cadastrada',
+        'Rodízio de Domingo Não Cadastrado (DSR)',
+        'Marcação Ímpar / Falta de Batida',
+        'Marcação Incompleta (Sem Batida de Almoço)',
+        'Jornada Incompleta',
+        'Intervalo Sub-1h',
+    }
 
     if request.method == 'POST' and request.FILES.get('arquivo_ponto'):
-        arquivo = request.FILES['arquivo_ponto']  # <-- Pega especificamente o ARQUIVO
+        arquivo = request.FILES['arquivo_ponto']
         nome_arquivo = arquivo.name
         
-        # Passa o arquivo para o parser
-        relatorio_colaboradores = ler_e_auditar_planilha_ponto(arquivo)
+        relatorio_colaboradores, matriz_escala, resumo_agregado = ler_e_auditar_planilha_ponto(arquivo)
 
-        # Extrai unidades e tipos de divergência únicos para popular os filtros
         for colab in relatorio_colaboradores:
             if colab.get('unidade'):
                 unidades.add(colab['unidade'])
@@ -25,17 +35,13 @@ def auditoria_espelho_ponto(request):
                 if inc.get('tipo'):
                     tipos_divergencia.add(inc['tipo'])
 
-    total_colaboradores = len(relatorio_colaboradores)
-    total_com_inconsistencia = sum(1 for c in relatorio_colaboradores if c['total_inconsistencias'] > 0)
-    total_alertas_gerais = sum(c['total_inconsistencias'] for c in relatorio_colaboradores)
-
     context = {
         'titulo': 'Auditoria de Espelho de Ponto',
         'relatorio': relatorio_colaboradores,
+        'matriz_escala': matriz_escala,
+        'resumo_agregado': resumo_agregado,
         'nome_arquivo': nome_arquivo,
-        'total_colaboradores': total_colaboradores,
-        'total_com_inconsistencia': total_com_inconsistencia,
-        'total_alertas_gerais': total_alertas_gerais,
+        'total_colaboradores': len(relatorio_colaboradores),
         'unidades': sorted(list(unidades)),
         'tipos_divergencia': sorted(list(tipos_divergencia)),
     }

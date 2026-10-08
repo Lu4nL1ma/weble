@@ -13,7 +13,7 @@ SECRET_KEY = 'django-insecure-7q_ei*os**1j!tj#11$o6!@uo@0kjz$%1gl38=$tk+c2)kz25v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['LeaoAzul.pythonanywhere.com']
+ALLOWED_HOSTS = ['LeaoAzul.pythonanywhere.com', '*']
 
 
 # Application definition
@@ -109,8 +109,27 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# MAILERS = {
+#     'default': {
+#         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+#     },
+# }
+
+
+# ==============================================================================
+# CONFIGURAÇÃO DE E-MAIL (ENVIO REAL VIA GMAIL SMTP - DJANGO 6.X)
+# ==============================================================================
 MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
+    "default": {
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": "smtp.gmail.com",
+            "port": 587,
+            "use_tls": True,
+            "username": "rhleaoazul@gmail.com",
+            "password": "qukc sqra hevx itmw",  # Substitua pela sua Senha de App do Google (16 caracteres)
+        },
+    }
 }
+
+DEFAULT_FROM_EMAIL = "RH Leão Azul <rhleaoazul@gmail.com>"

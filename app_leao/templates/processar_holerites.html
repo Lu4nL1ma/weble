@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contra-Cheques | LeãoFin</title>
+    <!-- Bootstrap 5 CSS e Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-primary" href="{% url 'menu_rh' %}">
+                <i class="bi bi-shield-check me-2"></i>LeãoFin
+            </a>
+            <a class="btn btn-outline-light btn-sm" href="{% url 'menu_rh' %}">
+                <i class="bi bi-arrow-left me-1"></i>Voltar ao Menu RH
+            </a>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        
+        <!-- Alertas do Django Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm mb-4" role="alert">
+                    {% if message.tags == 'success' %}
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                    {% elif message.tags == 'error' or message.tags == 'danger' %}
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    {% else %}
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Cabeçalho -->
+        <div class="d-flex align-items-center justify-content-between pb-3 mb-4 border-bottom">
+            <div>
+                <h3 class="fw-bold mb-1 text-dark">
+                    <i class="bi bi-file-earmark-pdf-fill me-2 text-primary"></i>Desagregação e Envio de Contra-Cheques
+                </h3>
+                <p class="text-muted mb-0 small">Fatiamento automático da folha de pagamento e envio dos anexos individuais para a supervisão de cada loja</p>
+            </div>
+            <!-- Botão de Limpar Sessão e Resetar Painel -->
+            {% if pacotes_unidades %}
+            <a href="{% url 'processar_holerites' %}?limpar=1" class="btn btn-outline-danger btn-sm fw-semibold">
+                <i class="bi bi-trash me-1"></i>Limpar e Novo Upload
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Formulário de Upload do PDF -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <form method="POST" action="{% url 'processar_holerites' %}" enctype="multipart/form-data" class="row g-3 align-items-center">
+                    {% csrf_token %}
+                    <div class="col-md-9">
+                        <label for="arquivo_holerite" class="form-label fw-bold text-dark mb-1">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Upload do PDF Consolidado da Folha (.pdf)
+                        </label>
+                        <input type="file" class="form-control form-control-lg" id="arquivo_holerite" name="arquivo_holerite" accept=".pdf" required>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold shadow-sm">
+                            <i class="bi bi-scissors me-2"></i>Fatiar e Separar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Lotes Fatiados por Unidade -->
+        {% if pacotes_unidades %}
+        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-building me-2"></i>Lotes Processados por Unidade</h5>
+
+        <div class="row g-4">
+            {% for pacote in pacotes_unidades %}
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center py-3">
+                        <span><i class="bi bi-geo-alt-fill text-primary me-2"></i>Unidade: {{ pacote.unidade }}</span>
+                        <span class="badge bg-primary px-3 py-2">{{ pacote.total_holerites }} Anexo(s)</span>
+                    </div>
+                    <div class="card-body p-4 d-flex flex-column">
+                        
+                        <!-- Formulário de Disparo por Unidade -->
+                        <form method="POST" action="{% url 'processar_holerites' %}" class="mb-3">
+                            {% csrf_token %}
+                            <input type="hidden" name="enviar_unidade" value="{{ pacote.unidade }}">
+                            
+                            <label class="form-label small fw-bold text-muted mb-1">E-mail do Gerente Responsável:</label>
+                            <div class="input-group mb-3">
+                                <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                                <input type="email" name="email_gerente" class="form-control" value="{{ pacote.email_gerente }}" placeholder="Digite o e-mail do gerente..." required>
+                                <button type="submit" class="btn btn-success fw-bold">
+                                    <i class="bi bi-send-fill me-1"></i>Disparar Lote
+                                </button>
+                            </div>
+                        </form>
+
+                        <h6 class="fw-bold text-dark small mb-2">Colaboradores Incluídos neste Lote:</h6>
+                        <ul class="list-group list-group-flush border rounded flex-grow-1 overflow-auto" style="max-height: 200px;">
+                            {% for colab_nome in pacote.colaboradores %}
+                            <li class="list-group-item small py-2 d-flex align-items-center justify-content-between">
+                                <span><i class="bi bi-person me-2 text-secondary"></i>{{ colab_nome }}</span>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">PDF Anexado</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Bloco de Folhas Não Identificadas -->
+        {% if nao_identificados %}
+        <div class="card border-danger shadow-sm mt-4">
+            <div class="card-header bg-danger text-white fw-bold">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>Folhas Não Identificadas ({{ nao_identificados|length }})
+            </div>
+            <div class="card-body p-3">
+                <p class="small text-muted mb-2">As folhas abaixo não puderam ser vinculadas a nenhum colaborador ativo cadastrado no banco:</p>
+                <ul class="list-group">
+                    {% for item in nao_identificados %}
+                    <li class="list-group-item small d-flex justify-content-between align-items-center">
+                        <span>Página {{ item.pagina }} do PDF original</span>
+                        <span class="badge bg-secondary">{{ item.nome_arquivo }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
